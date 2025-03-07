@@ -21,7 +21,7 @@ namespace PaddleOCR.TotalStation
 
         
 
-        public (Bitmap resultBitmap, PointF? centerPoint) ProcessAndDrawOnBitmap(Bitmap bitmapImage)
+        public (Bitmap resultBitmap, PointF? centerPoint,int width1,int height1) ProcessAndDrawOnBitmap(Bitmap bitmapImage)
         {
             var options = new SessionOptions();
             session = new InferenceSession(modelPath, options);
@@ -149,7 +149,7 @@ namespace PaddleOCR.TotalStation
 
             if (boundingBoxes.Count == 0)
             {
-                return (null, null); // 未检测到任何框
+                return (null, null,0,0); // 未检测到任何框
             }
 
             // 使用 NMS 筛选最佳检测框
@@ -159,7 +159,7 @@ namespace PaddleOCR.TotalStation
 
             if (selectedIndices.Length == 0)
             {
-                return (null, null);
+                return (null, null,0,0);
             }
 
             // 取 NMS 筛选后的第一个检测框
@@ -167,22 +167,51 @@ namespace PaddleOCR.TotalStation
             RotatedRect bestRotatedBox = rotatedBoxes[bestIdx];
 
             //复制原图
+            Point2f[] rectPoints = bestRotatedBox.Points();
+            // PointF centerPoint = new PointF(bestRotatedBox.Center.X, bestRotatedBox.Center.Y);
+            double mag = 1500 / (bestRotatedBox.Size.Width + 0.001);
+            double L = 5000;
+            foreach (var point in rectPoints)
+            {
+       //         double angleY = Math.Atan2(mag*(point.Y - centerPoint.Y), L) * (180.0 / Math.PI);
+           //     double angleX = Math.Atan2(mag*(point.X - centerPoint.X), L) * (180.0 / Math.PI);
+           //     Console.WriteLine($"Angle with respect to X-axis: {angleX} degrees");
+           //     Console.WriteLine($"Angle with respect to Y-axis: {angleY} degrees");
+            }
+
 
             int x1 = (int)bestRotatedBox.Center.X - ((int)bestRotatedBox.Size.Width / 2);
             int y1 = (int)bestRotatedBox.Center.Y- ((int)bestRotatedBox.Size.Height / 2);
             int x2 = (int)bestRotatedBox.Center.X + ((int)bestRotatedBox.Size.Width / 2);
             int y2 = (int)bestRotatedBox.Center.Y + ((int)bestRotatedBox.Size.Height / 2);
             Cv2.Rectangle(image, new Point(x1,y1), new Point(x2,y2), new Scalar(0, 0, 255), 2);
-            Cv2.ImShow("img", image);
-            Cv2.WaitKey(0);
-            Cv2.DestroyAllWindows();
+            Point2f[] rectPoints1 = bestRotatedBox.Points();
+            foreach (var point in rectPoints1)
+            {
+                Cv2.Circle(image, new Point((int)point.X, (int)point.Y), 30, new Scalar(255, 0, 255), -1);
+            }
+
 
             // 更新中心点
             PointF? centerPoint = new PointF(bestRotatedBox.Center.X, bestRotatedBox.Center.Y);
+            Cv2.Circle(image, new Point((int)centerPoint.Value.X, (int)centerPoint.Value.Y), 30, new Scalar(0, 0, 255), -1);
+            //     Cv2.Circle(image, new Point((int)x1, (int)y1), 5, new Scalar(0, 0, 255), -1);
+            //     Cv2.Circle(image, new Point((int)x2, (int)y2), 5, new Scalar(0, 0, 255), -1);
+            Line2D line2D = new Line2D(720, 450, 715, 1180);
+            //隧道中心检测并生成
+           // (Point point1, Point point) detectedLinePoints = DetectLine(image, Point1,  Point2);
 
+            Cv2.Line(image,720, 450,715, 1180, new Scalar(0, 255, 0), 3);
 
+            Cv2.Line(image, 820+50, 450, 815+50, 1180, new Scalar(0, 255, 0), 3);
+            Cv2.Line(image, 920+100, 450, 915+100, 1180, new Scalar(0, 255, 0), 3);
+            Cv2.Line(image,1020+150, 450, 1015+150, 1180, new Scalar(0, 255, 0), 3);
+
+            Cv2.ImShow("img", image);
+            Cv2.WaitKey(0);
+            Cv2.DestroyAllWindows();
             // 使用与之前相同的透视变换逻辑裁剪出目标区域
-            Point2f[] rectPoints = bestRotatedBox.Points();
+       //     Point2f[] rectPoints = bestRotatedBox.Points();
             Point2f[] dstPoints = new Point2f[4];
             dstPoints[0] = new Point2f(0, bestRotatedBox.Size.Height - 1);
             dstPoints[1] = new Point2f(0, 0);
@@ -195,11 +224,35 @@ namespace PaddleOCR.TotalStation
                 new OpenCvSharp.Size((int)bestRotatedBox.Size.Width, (int)bestRotatedBox.Size.Height));
 
             Bitmap croppedBitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(croppedImage);
-
-            return (croppedBitmap, centerPoint);
+            int width1 =  (int) bestRotatedBox.Size.Width;
+            int height1 = (int) bestRotatedBox.Size.Height;
+            return (croppedBitmap, centerPoint,width1,height1);
 
 
         }
 
+        private (Point point1, Point point) DetectLine(Mat image, Point point1, Point point2)
+        {
+            return (point1, point2);
+        }
+        /*
+Line2D[] GenerateParallelLines(Line2D baseLine, int numberOfLines, int spacing)
+{
+   Line2D[] parallelLines = new Line2D[numberOfLines];
+   baseLine.
+   double angle = Math.Atan2(baseLine.Y2 - baseLine.Y1, baseLine.X2 - baseLine.X1);
+   double offsetX = spacing * Math.Sin(angle);
+   double offsetY = spacing * Math.Cos(angle);
+
+   for (int i = 0; i < numberOfLines; i++)
+   {
+       Point2f newP1 = new Point2f((float)(baseLine.X1 + offsetX * (i + 1)), (float)(baseLine.Y1 - offsetY * (i + 1)));
+       Point2f newP2 = new Point2f((float)(baseLine.X2 + offsetX * (i + 1)), (float)(baseLine.Y2 - offsetY * (i + 1)));
+       parallelLines[i] = new Line2D(newP1, newP2);
+   }
+
+   return parallelLines;
+}
+*/
     }
 }
